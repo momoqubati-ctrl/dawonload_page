@@ -345,13 +345,6 @@ export default function App() {
             >
               دليل التثبيت
             </button>
-            <span aria-hidden="true" className="text-slate-600">·</span>
-            <button
-              onClick={requestAdminView}
-              className="hover:text-cyan-400 transition-colors cursor-pointer text-slate-400"
-            >
-              لوحة الإدارة والرفع
-            </button>
           </div>
         </div>
       </footer>
