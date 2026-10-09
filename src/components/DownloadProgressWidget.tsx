@@ -17,6 +17,7 @@ import {
   getApkBlob,
   createMockApkBlob,
   triggerFileDownload,
+  triggerDirectUrlDownload,
   incrementDownloadCount,
 } from '../utils/storage';
 
@@ -120,13 +121,17 @@ export const DownloadProgressWidget: React.FC<DownloadProgressWidgetProps> = ({
     setDownloadSpeed(0);
     setRemainingSeconds(0);
 
-    // Retrieve real blob from IndexedDB or generate test APK
+    // Retrieve real blob from IndexedDB, direct URL, or fallback
     try {
-      let apkBlob = await getApkBlob(release.id);
-      if (!apkBlob) {
-        apkBlob = createMockApkBlob(release);
+      const apkBlob = await getApkBlob(release.id);
+      if (apkBlob) {
+        triggerFileDownload(apkBlob, release.fileName);
+      } else if (release.downloadUrl) {
+        triggerDirectUrlDownload(release.downloadUrl, release.fileName);
+      } else {
+        const mockBlob = createMockApkBlob(release);
+        triggerFileDownload(mockBlob, release.fileName);
       }
-      triggerFileDownload(apkBlob, release.fileName);
       incrementDownloadCount(release.id);
       if (onDownloadCompleted) onDownloadCompleted();
     } catch (err) {

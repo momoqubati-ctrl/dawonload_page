@@ -27,6 +27,7 @@ import {
   DEFAULT_RELEASE,
   createMockApkBlob,
   triggerFileDownload,
+  triggerDirectUrlDownload,
   getApkBlob,
 } from '../utils/storage';
 import { LogOut } from 'lucide-react';
@@ -49,6 +50,7 @@ export const AdminUploadPage: React.FC<AdminUploadPageProps> = ({
   const [version, setVersion] = useState<string>('1.0');
   const [buildNumber, setBuildNumber] = useState<number>(1);
   const [minAndroid, setMinAndroid] = useState<string>('Android 6.0 (Marshmallow) فما فوق');
+  const [downloadUrl, setDownloadUrl] = useState<string>('');
   const [whatsNewList, setWhatsNewList] = useState<string[]>([
     'اشتراكات برامج وأدوات الذكاء الاصطناعي (ChatGPT Plus, Claude 3.5, Midjourney)',
     'الكورسات والدورات التعليمية الاحترافية (Udemy, Coursera, Skillshare)',
@@ -160,6 +162,7 @@ export const AdminUploadPage: React.FC<AdminUploadPageProps> = ({
         isOfficial: true,
         uploadedAt: Date.now(),
         hasStoredBlob: true,
+        downloadUrl: downloadUrl.trim() || undefined,
       };
 
       const currentReleases = getSavedReleases();
@@ -207,11 +210,15 @@ export const AdminUploadPage: React.FC<AdminUploadPageProps> = ({
   };
 
   const handleTestDownload = async (rel: ApkRelease) => {
-    let blob = await getApkBlob(rel.id);
-    if (!blob) {
-      blob = createMockApkBlob(rel);
+    const blob = await getApkBlob(rel.id);
+    if (blob) {
+      triggerFileDownload(blob, rel.fileName);
+    } else if (rel.downloadUrl) {
+      triggerDirectUrlDownload(rel.downloadUrl, rel.fileName);
+    } else {
+      const mockBlob = createMockApkBlob(rel);
+      triggerFileDownload(mockBlob, rel.fileName);
     }
-    triggerFileDownload(blob, rel.fileName);
   };
 
   const handleResetDefaults = () => {
@@ -291,7 +298,7 @@ export const AdminUploadPage: React.FC<AdminUploadPageProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".apk"
+                accept=".apk,application/vnd.android.package-archive,application/octet-stream"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -369,6 +376,25 @@ export const AdminUploadPage: React.FC<AdminUploadPageProps> = ({
                 placeholder="Android 6.0 (Marshmallow) فما فوق"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a1c42] border border-white/10 text-white text-xs outline-none focus:border-cyan-400"
               />
+            </div>
+
+            {/* Direct Cloud/GitHub Download URL (Optional) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>رابط التحميل السحابي المباشر (اختياري - لنشر التطبيق لجميع الزوار)</span>
+                <span className="text-[10px] text-cyan-400 font-mono">GitHub Releases / Direct URL</span>
+              </label>
+              <input
+                type="url"
+                value={downloadUrl}
+                onChange={(e) => setDownloadUrl(e.target.value)}
+                placeholder="https://github.com/.../releases/download/.../app.apk"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a1c42] border border-white/10 text-white text-xs outline-none focus:border-cyan-400 font-mono text-left"
+                dir="ltr"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                عند رفع ملف APK من الهاتف سيتم حفظه في ذاكرة متصفحك للاختبار الفوري. لإتاحة الملف الحقيقي لجميع زوار موقعك حول العالم، ضع رابط تنزيل سحابي مباشر هنا.
+              </p>
             </div>
 
             {/* What's New / Release Notes Editor */}

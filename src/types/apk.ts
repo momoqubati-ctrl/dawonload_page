@@ -18,6 +18,7 @@ export interface ApkRelease {
   isOfficial: boolean;
   uploadedAt: number;
   hasStoredBlob?: boolean;
+  downloadUrl?: string;
 }
 
 export type PageView = 'download' | 'admin';

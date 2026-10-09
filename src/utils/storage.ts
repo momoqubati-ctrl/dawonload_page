@@ -193,3 +193,17 @@ export function triggerFileDownload(blob: Blob, filename: string): void {
     URL.revokeObjectURL(url);
   }, 1000);
 }
+
+// Trigger direct URL download (e.g. for cloud or GitHub releases)
+export function triggerDirectUrlDownload(url: string, filename: string): void {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+  }, 1000);
+}
