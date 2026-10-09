@@ -12,12 +12,11 @@ export const DEFAULT_RELEASE: ApkRelease = {
   packageName: 'com.shabakati.digital.services',
   version: '1.0',
   buildNumber: 1,
-  releaseDate: '2026-10-09',
+  releaseDate: '2026-10-10',
   fileSizeMb: 22.5,
-  fileSizeBytes: 22.5 * 1024 * 1024,
-  fileName: 'Shabakati_Digital_Services_v1.0.apk',
-  sha256: 'a4b8f3e1c9d27a659021e8485a7ec84d2f091c57bb3a016f91dae38b34c21980',
-  md5: '8e63e9f456012c8b7498c19a842b10ab',
+  fileSizeBytes: 23594078,
+  fileName: 'Shabakati.apk',
+  sha256: '3c349761024dc4334ca193fdb2bfcab3376030b5a07d2f53f4b4e09385f789de',
   minAndroid: 'Android 6.0 (Marshmallow) فما فوق',
   targetSdk: 'Android 14 (API 34)',
   architecture: 'Universal (arm64-v8a, armeabi-v7a, x86_64)',
@@ -30,8 +29,9 @@ export const DEFAULT_RELEASE: ApkRelease = {
     'حزمة تطبيق خفيفة فائقة السرعة (22.5 ميجابايت) مخصصة لهذه الخدمات فقط'
   ],
   isOfficial: true,
-  uploadedAt: Date.now() - 86400000,
-  hasStoredBlob: false,
+  uploadedAt: Date.now(),
+  hasStoredBlob: true,
+  downloadUrl: '/Shabakati.apk',
 };
 
 // Open IndexedDB
@@ -65,21 +65,31 @@ export async function storeApkBlob(releaseId: string, blob: Blob): Promise<void>
   }
 }
 
-// Retrieve an APK blob from IndexedDB
+// Retrieve an APK blob from IndexedDB or public assets
 export async function getApkBlob(releaseId: string): Promise<Blob | null> {
   try {
     const db = await openDB();
-    return new Promise((resolve) => {
+    const blobFromDb = await new Promise<Blob | null>((resolve) => {
       const tx = db.transaction(BLOB_STORE, 'readonly');
       const store = tx.objectStore(BLOB_STORE);
       const req = store.get(releaseId);
       req.onsuccess = () => resolve(req.result || null);
       req.onerror = () => resolve(null);
     });
+    if (blobFromDb) return blobFromDb;
   } catch (error) {
     console.warn('Could not retrieve APK blob from IndexedDB:', error);
-    return null;
   }
+
+  // If not found in IndexedDB, fetch the real public /Shabakati.apk
+  try {
+    const response = await fetch('/Shabakati.apk');
+    if (response.ok) {
+      return await response.blob();
+    }
+  } catch {}
+
+  return null;
 }
 
 // Delete an APK blob
