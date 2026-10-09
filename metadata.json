@@ -1,0 +1,6 @@
+{
+  "name": "تطبيق شبكتي للخدمات الرقمية",
+  "description": "منصة تنزيل وإدارة تطبيق شبكتي للخدمات الرقمية مع رفع ملفات APK ومتابعة التحديثات وسرعة التحميل.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
