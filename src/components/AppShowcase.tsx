@@ -5,12 +5,10 @@ import {
   Film,
   Palette,
   ShieldCheck,
-  Cpu,
   ChevronDown,
   CheckCircle,
   HelpCircle,
   Smartphone,
-  Lock,
 } from 'lucide-react';
 import { ApkRelease } from '../types/apk';
 
@@ -130,64 +128,7 @@ export const AppShowcase: React.FC<AppShowcaseProps> = ({ release }) => {
         })}
       </div>
 
-      {/* 2. Technical Specifications & Integrity Verification */}
-      <div className="bg-[#07132e] border border-white/10 rounded-3xl p-6 sm:p-8 mb-16 text-right">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-white/10">
-          <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <Cpu className="w-5 h-5 text-cyan-400" />
-              المواصفات الفنية لحزمة APK
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              بيانات الحزمة والتوقيع الرقمي المعتمد من شبكتي
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-            <Lock className="w-3.5 h-3.5" />
-            حزمة رسمية موقّعة
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-[#0a1c42] border border-white/5">
-            <div className="text-slate-400 text-[11px] mb-1">اسم الحزمة (Package ID)</div>
-            <div className="font-mono text-cyan-300 font-bold truncate" dir="ltr">
-              {release.packageName}
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#0a1c42] border border-white/5">
-            <div className="text-slate-400 text-[11px] mb-1">رقم الإصدار والبناء</div>
-            <div className="font-mono text-white font-bold">
-              {release.version} (Build {release.buildNumber})
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#0a1c42] border border-white/5">
-            <div className="text-slate-400 text-[11px] mb-1">الحد الأدنى للنظام</div>
-            <div className="text-white font-bold">
-              {release.minAndroid}
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#0a1c42] border border-white/5">
-            <div className="text-slate-400 text-[11px] mb-1">المعمارية المدعومة</div>
-            <div className="text-white font-bold truncate">
-              {release.architecture}
-            </div>
-          </div>
-        </div>
-
-        {/* SHA-256 Hash Display */}
-        <div className="mt-4 p-3 rounded-xl bg-slate-950/70 border border-cyan-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
-          <span className="text-slate-400 font-semibold">بصمة التشفير الرقمية (SHA-256):</span>
-          <span className="font-mono text-cyan-300 truncate select-all" dir="ltr">
-            {release.sha256}
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Frequently Asked Questions (FAQ) */}
+      {/* 2. Frequently Asked Questions (FAQ) */}
       <div className="max-w-3xl mx-auto mb-16 text-right">
         <div className="text-center mb-8">
           <h3 className="text-xl sm:text-2xl font-black text-white">

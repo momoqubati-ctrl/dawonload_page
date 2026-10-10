@@ -149,12 +149,6 @@ export default function App() {
                 >
                   الخدمات الرقمية
                 </a>
-                <a
-                  href="#specs"
-                  className="hover:text-cyan-400 transition-colors whitespace-nowrap shrink-0"
-                >
-                  المواصفات الفنية
-                </a>
                 <button
                   onClick={() => setIsInstallGuideOpen(true)}
                   className="hover:text-cyan-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
@@ -307,11 +301,9 @@ export default function App() {
               </div>
             )}
 
-            {/* Showcase & Specifications Section */}
+            {/* Services Showcase Section */}
             <div id="services">
-              <div id="specs">
-                <AppShowcase release={activeRelease} />
-              </div>
+              <AppShowcase release={activeRelease} />
             </div>
           </div>
         )}
