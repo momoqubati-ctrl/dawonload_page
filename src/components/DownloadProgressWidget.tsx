@@ -20,6 +20,7 @@ import {
   triggerDirectUrlDownload,
   incrementDownloadCount,
 } from '../utils/storage';
+import { recordDownloadHit } from '../utils/analytics';
 
 interface DownloadProgressWidgetProps {
   release: ApkRelease;
@@ -133,6 +134,7 @@ export const DownloadProgressWidget: React.FC<DownloadProgressWidgetProps> = ({
         triggerFileDownload(mockBlob, release.fileName);
       }
       incrementDownloadCount(release.id);
+      recordDownloadHit(release.fileName);
       if (onDownloadCompleted) onDownloadCompleted();
     } catch (err) {
       console.error('Download trigger error:', err);

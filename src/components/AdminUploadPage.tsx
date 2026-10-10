@@ -31,6 +31,7 @@ import {
   getApkBlob,
 } from '../utils/storage';
 import { LogOut } from 'lucide-react';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
 
 interface AdminUploadPageProps {
   currentRelease: ApkRelease;
@@ -266,6 +267,11 @@ export const AdminUploadPage: React.FC<AdminUploadPageProps> = ({
             <span>صفحة التنزيل (واجهة الزوار)</span>
           </button>
         </div>
+      </div>
+
+      {/* 1. Live Analytics & Visitors / Downloads Performance Cards */}
+      <div className="mb-8">
+        <AnalyticsDashboard />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

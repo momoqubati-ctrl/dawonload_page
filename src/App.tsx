@@ -21,6 +21,7 @@ import {
 } from './components/AdminLoginModal';
 import { ApkRelease, PageView } from './types/apk';
 import { getActiveRelease } from './utils/storage';
+import { recordVisitorHit } from './utils/analytics';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<PageView>('download');
@@ -83,6 +84,11 @@ export default function App() {
     }
     const currentActive = getActiveRelease();
     setActiveRelease(currentActive);
+
+    // Record page view analytics for visitors
+    if (viewParam !== 'admin' && !hasAdminFlag) {
+      recordVisitorHit();
+    }
   }, []);
 
   const switchView = (view: PageView) => {
