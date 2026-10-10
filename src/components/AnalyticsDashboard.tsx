@@ -4,83 +4,61 @@ import {
   Download,
   TrendingUp,
   Smartphone,
-  Laptop,
   Clock,
   Activity,
   RefreshCw,
-  Settings2,
-  CheckCircle2,
   Eye,
-  ShieldCheck,
-  X,
-  Save,
-  RotateCcw,
+  Cloud,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   AnalyticsData,
   getAnalyticsData,
   subscribeToAnalytics,
-  setCustomCounterValues,
-  resetAnalyticsData,
+  syncFromGlobalCloud,
 } from '../utils/analytics';
 
 export const AnalyticsDashboard: React.FC = () => {
   const [data, setData] = useState<AnalyticsData>(() => getAnalyticsData());
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [customVisitors, setCustomVisitors] = useState<string>('');
-  const [customDownloads, setCustomDownloads] = useState<string>('');
-  const [feedbackMsg, setFeedbackMsg] = useState<string>('');
+  const [lastSyncTime, setLastSyncTime] = useState<string>('جاري المزامنة...');
 
-  // Subscribe to real-time sync across tabs
+  // Sync real cloud data on mount and listen to changes
   useEffect(() => {
-    const unsubscribe = subscribeToAnalytics((updated) => {
-      setData(updated);
+    let isMounted = true;
+
+    syncFromGlobalCloud().then((fresh) => {
+      if (isMounted) {
+        setData(fresh);
+        setLastSyncTime(new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }));
+      }
     });
-    return () => unsubscribe();
+
+    const unsubscribe = subscribeToAnalytics((updated) => {
+      if (isMounted) {
+        setData(updated);
+        setLastSyncTime(new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
-  const handleManualRefresh = () => {
+  const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    const fresh = getAnalyticsData();
-    setData(fresh);
-    setTimeout(() => setIsRefreshing(false), 500);
-  };
-
-  const handleOpenSettings = () => {
-    setCustomVisitors(data.totalVisitors.toString());
-    setCustomDownloads(data.totalDownloads.toString());
-    setIsSettingsOpen(true);
-    setFeedbackMsg('');
-  };
-
-  const handleSaveCustomCounters = (e: React.FormEvent) => {
-    e.preventDefault();
-    const vis = parseInt(customVisitors, 10);
-    const down = parseInt(customDownloads, 10);
-
-    if (isNaN(vis) || isNaN(down)) {
-      setFeedbackMsg('يرجى إدخال أرقام صحيحة');
-      return;
+    try {
+      const fresh = await syncFromGlobalCloud();
+      setData(fresh);
+      setLastSyncTime(new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }));
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
     }
-
-    const updated = setCustomCounterValues(vis, down);
-    setData(updated);
-    setFeedbackMsg('تم تحديث أرقام الإحصائيات بنجاح!');
-    setTimeout(() => {
-      setIsSettingsOpen(false);
-      setFeedbackMsg('');
-    }, 1200);
   };
 
-  const handleReset = () => {
-    if (!confirm('هل أنت متأكد من تصفير جميع عدادات الإحصائيات إلى الصفر؟')) return;
-    const empty = resetAnalyticsData();
-    setData(empty);
-    setIsSettingsOpen(false);
-  };
-
-  // Calculations
+  // Real calculations based on actual hits
   const conversionRate =
     data.totalVisitors > 0
       ? ((data.totalDownloads / data.totalVisitors) * 100).toFixed(1)
@@ -96,10 +74,10 @@ export const AnalyticsDashboard: React.FC = () => {
   const androidPct =
     totalDeviceHits > 0
       ? Math.round(((data.deviceCounts.android || 0) / totalDeviceHits) * 100)
-      : 85;
+      : 0;
 
   const formatNumber = (num: number): string => {
-    return new Intl.NumberFormat('ar-EG').format(num);
+    return new Intl.NumberFormat('ar-EG').format(num || 0);
   };
 
   const formatTimeAgo = (ts: number): string => {
@@ -117,52 +95,46 @@ export const AnalyticsDashboard: React.FC = () => {
       {/* Top Header of Analytics */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/10">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            إحصائيات المنصة الحية
+            <Cloud className="w-3.5 h-3.5" />
+            مزامنة سحابية حية (Real-time Global Cloud)
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
             <Activity className="w-6 h-6 text-cyan-400" />
-            <span>مؤشرات زوار الموقع وعمليات التحميل</span>
+            <span>مؤشرات الزوار والتحميلات الحقيقية</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            متابعة فورية ودقيقة لعدد من زار صفحة التنزيل وعدد من قام بتحميل تطبيق شبكتي (APK)
+            إحصائيات فعلية ومباشرة بدون أي أرقام تقديرية — تُحسب لحظياً عند كل زيارة أو تنزيل فعلي
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="text-[11px] text-slate-400 font-mono hidden sm:block">
+            آخر تحديث: {lastSyncTime}
+          </div>
           <button
             type="button"
             onClick={handleManualRefresh}
-            className={`p-2.5 rounded-xl bg-[#0a1c42] hover:bg-[#0d2352] border border-white/10 text-cyan-300 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-              isRefreshing ? 'animate-spin' : ''
+            className={`px-3.5 py-2.5 rounded-xl bg-[#0a1c42] hover:bg-[#0d2352] border border-white/10 text-cyan-300 text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+              isRefreshing ? 'opacity-80' : ''
             }`}
-            title="تحديث الإحصائيات فوراً"
+            title="تحديث الإحصائيات من السحابة"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span className="hidden sm:inline">تحديث</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenSettings}
-            className="px-3.5 py-2.5 rounded-xl bg-[#0a1c42] hover:bg-[#0d2352] border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="إدارة وتعديل العدادات"
-          >
-            <Settings2 className="w-4 h-4 text-cyan-400" />
-            <span>تعديل الأرقام</span>
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>تحديث حي</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Main KPI Cards */}
+      {/* 4 Main Real KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Website Visitors */}
+        {/* Card 1: Real Website Visitors */}
         <div className="bg-[#06132e] border border-cyan-500/20 hover:border-cyan-500/40 rounded-2xl p-5 transition-all relative overflow-hidden group">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
               <Eye className="w-4 h-4 text-cyan-400" />
-              إجمالي زوار الموقع
+              إجمالي الزوار الفعليين
             </span>
             <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
               <Users className="w-4 h-4" />
@@ -181,12 +153,12 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 2: Total Downloads */}
+        {/* Card 2: Real Total Downloads */}
         <div className="bg-[#06132e] border border-emerald-500/20 hover:border-emerald-500/40 rounded-2xl p-5 transition-all relative overflow-hidden group">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
               <Download className="w-4 h-4 text-emerald-400" />
-              عدد من قام بتحميل التطبيق
+              من قاموا بالتحميل فعلياً
             </span>
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
               <Download className="w-4 h-4" />
@@ -205,12 +177,12 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Conversion Rate */}
+        {/* Card 3: Real Conversion Rate */}
         <div className="bg-[#06132e] border border-purple-500/20 hover:border-purple-500/40 rounded-2xl p-5 transition-all relative overflow-hidden group">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
               <TrendingUp className="w-4 h-4 text-purple-400" />
-              معدل التحويل (التحميل/الزيارة)
+              معدل التحويل الفعلي
             </span>
             <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
@@ -227,8 +199,8 @@ export const AnalyticsDashboard: React.FC = () => {
               />
             </div>
             <div className="text-[10px] text-slate-400 mt-1.5 flex justify-between">
-              <span>تفاعل الزوار</span>
-              <span>عالي وممتاز</span>
+              <span>نسبة التحميل من الزوار</span>
+              <span>{parseFloat(conversionRate) > 0 ? 'نشط' : 'بانتظار الزيارات'}</span>
             </div>
           </div>
         </div>
@@ -238,7 +210,7 @@ export const AnalyticsDashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
               <Smartphone className="w-4 h-4 text-amber-400" />
-              أجهزة الزوار الأكثر طلباً
+              أجهزة الزوار
             </span>
             <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
               <Smartphone className="w-4 h-4" />
@@ -248,8 +220,8 @@ export const AnalyticsDashboard: React.FC = () => {
             {androidPct}%
           </div>
           <div className="mt-3 flex items-center justify-between text-[11px] pt-3 border-t border-white/5 text-slate-400">
-            <span className="text-amber-400 font-semibold">أجهزة أندرويد (APK)</span>
-            <span>+{data.deviceCounts.windows || 0} كمبيوتر</span>
+            <span className="text-amber-400 font-semibold">أندرويد: {data.deviceCounts.android || 0}</span>
+            <span>كمبيوتر: {data.deviceCounts.windows || 0}</span>
           </div>
         </div>
       </div>
@@ -258,12 +230,12 @@ export const AnalyticsDashboard: React.FC = () => {
       <div className="bg-[#06132e] border border-white/5 rounded-2xl p-5">
         <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-4">
           <Clock className="w-4 h-4 text-cyan-400" />
-          <span>سجل آخر النشاطات وعمليات التنزيل المباشرة</span>
+          <span>سجل النشاطات الحية المباشرة</span>
         </h3>
 
         {data.recentActivities && data.recentActivities.length > 0 ? (
           <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-            {data.recentActivities.slice(0, 8).map((act) => {
+            {data.recentActivities.slice(0, 10).map((act) => {
               const isDownload = act.type === 'download';
               return (
                 <div
@@ -287,7 +259,7 @@ export const AnalyticsDashboard: React.FC = () => {
 
                     <div>
                       <div className="font-semibold text-white">
-                        {isDownload ? 'عملية تحميل ناجحة' : 'زيارة للموقع'}
+                        {isDownload ? 'عملية تحميل حقيقية' : 'زيارة للموقع'}
                       </div>
                       <div className="text-[11px] text-slate-400">
                         {act.details || (isDownload ? 'Shabakati.apk' : 'زيارة صفحة التنزيل')}
@@ -307,93 +279,10 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-6 text-slate-400 text-xs">
-            لا توجد نشاطات مسجلة بعد
+            لا توجد نشاطات مسجلة بعد — ستظهر العمليات هنا فور حدوث أول زيارة أو تحميل.
           </div>
         )}
       </div>
-
-      {/* Edit/Customize Counters Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div
-            className="w-full max-w-md bg-[#07132e] border border-cyan-500/40 rounded-3xl p-6 shadow-2xl text-right relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-              <h4 className="text-base font-bold text-white flex items-center gap-2">
-                <Settings2 className="w-4 h-4 text-cyan-400" />
-                تعديل عدادات الإحصائيات
-              </h4>
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              يمكنك تخصيص الأرقام الأولية لعداد الزوار والتحميلات بما يتناسب مع حجم جمهور تطبيقك.
-            </p>
-
-            <form onSubmit={handleSaveCustomCounters} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  إجمالي عدد زوار الموقع
-                </label>
-                <input
-                  type="number"
-                  value={customVisitors}
-                  onChange={(e) => setCustomVisitors(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a1c42] border border-white/10 text-white text-xs outline-none focus:border-cyan-400 font-mono"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  إجمالي عدد من قام بتحميل التطبيق
-                </label>
-                <input
-                  type="number"
-                  value={customDownloads}
-                  onChange={(e) => setCustomDownloads(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a1c42] border border-white/10 text-white text-xs outline-none focus:border-cyan-400 font-mono"
-                  required
-                />
-              </div>
-
-              {feedbackMsg && (
-                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{feedbackMsg}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  حفظ التعديلات
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="px-4 py-2.5 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/30 text-red-300 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                  title="تصفير العدادات"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  تصفير
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

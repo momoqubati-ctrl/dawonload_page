@@ -20,7 +20,7 @@ export const DEFAULT_RELEASE: ApkRelease = {
   minAndroid: 'Android 6.0 (Marshmallow) فما فوق',
   targetSdk: 'Android 14 (API 34)',
   architecture: 'Universal (arm64-v8a, armeabi-v7a, x86_64)',
-  downloadCount: 15420,
+  downloadCount: 0,
   whatsNew: [
     'اشتراكات برامج وأدوات الذكاء الاصطناعي (ChatGPT Plus, Claude 3.5, Midjourney)',
     'الكورسات والدورات التعليمية من كبرى المنصات التدريبية (Udemy, Coursera)',

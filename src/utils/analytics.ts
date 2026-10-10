@@ -14,6 +14,7 @@ export interface AnalyticsData {
   totalDownloads: number;
   todayDownloads: number;
   lastDateString: string;
+  isCloudSynced: boolean;
   deviceCounts: {
     android: number;
     ios: number;
@@ -24,11 +25,45 @@ export interface AnalyticsData {
   recentActivities: ActivityItem[];
 }
 
-const ANALYTICS_STORAGE_KEY = 'shabakati_analytics_v1';
-const UNIQUE_VISITOR_KEY = 'shabakati_unique_user_id';
-const SESSION_VISIT_KEY = 'shabakati_session_visited_flag';
+const ANALYTICS_STORAGE_KEY = 'shabakati_analytics_real_v2';
+const UNIQUE_VISITOR_KEY = 'shabakati_unique_user_id_v2';
+const SESSION_VISIT_KEY = 'shabakati_session_visited_flag_v2';
+const CLOUD_NAMESPACE = 'shabakati_app_prod_2026';
+const CLOUD_API_BASE = 'https://abacus.jasoncameron.dev';
 
-// Detect client device
+// Clean up old fake cache from previous versions
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('shabakati_analytics_v1');
+    localStorage.removeItem('shabakati_session_visited_flag');
+  } catch {}
+}
+
+// Get today's ISO date string: YYYY-MM-DD
+export function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Initial clean 100% real baseline data (starts at 0)
+const REAL_DEFAULT_ANALYTICS: AnalyticsData = {
+  totalVisitors: 0,
+  uniqueVisitors: 0,
+  todayVisitors: 0,
+  totalDownloads: 0,
+  todayDownloads: 0,
+  lastDateString: getTodayDateString(),
+  isCloudSynced: false,
+  deviceCounts: {
+    android: 0,
+    ios: 0,
+    windows: 0,
+    mac: 0,
+    other: 0,
+  },
+  recentActivities: [],
+};
+
+// Detect client device & browser
 export function detectDevice(): {
   device: ActivityItem['device'];
   browser: ActivityItem['browser'];
@@ -56,87 +91,66 @@ export function detectDevice(): {
   return { device, browser };
 }
 
-// Get today's ISO date string: YYYY-MM-DD
-function getTodayDateString(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-// Initial realistic baseline data matching app status
-const DEFAULT_ANALYTICS: AnalyticsData = {
-  totalVisitors: 21850,
-  uniqueVisitors: 18420,
-  todayVisitors: 142,
-  totalDownloads: 15420,
-  todayDownloads: 86,
-  lastDateString: getTodayDateString(),
-  deviceCounts: {
-    android: 18450,
-    ios: 1220,
-    windows: 1980,
-    mac: 140,
-    other: 60,
-  },
-  recentActivities: [
-    {
-      id: 'act-1',
-      type: 'download',
-      timestamp: Date.now() - 1000 * 60 * 8,
-      device: 'Android',
-      browser: 'Chrome',
-      details: 'Shabakati.apk (22.5 MB)',
-    },
-    {
-      id: 'act-2',
-      type: 'visit',
-      timestamp: Date.now() - 1000 * 60 * 14,
-      device: 'Android',
-      browser: 'Samsung',
-      details: 'زيارة لصفحة التنزيل',
-    },
-    {
-      id: 'act-3',
-      type: 'download',
-      timestamp: Date.now() - 1000 * 60 * 25,
-      device: 'Android',
-      browser: 'Chrome',
-      details: 'Shabakati.apk (22.5 MB)',
-    },
-    {
-      id: 'act-4',
-      type: 'visit',
-      timestamp: Date.now() - 1000 * 60 * 42,
-      device: 'Windows',
-      browser: 'Edge',
-      details: 'زيارة واستعراض المواصفات',
-    },
-  ],
-};
-
-// Broadcast channel for real-time live synchronization between tabs
+// Broadcast channel for real-time live synchronization between tabs on same device
 let statsChannel: BroadcastChannel | null = null;
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   try {
-    statsChannel = new BroadcastChannel('shabakati_analytics_channel');
+    statsChannel = new BroadcastChannel('shabakati_real_analytics_channel');
   } catch {
     statsChannel = null;
   }
 }
 
-// Load current analytics from storage
+// Cloud API: Get counter value (does NOT increment)
+async function fetchCloudValue(key: string): Promise<number | null> {
+  try {
+    const res = await fetch(`${CLOUD_API_BASE}/get/${CLOUD_NAMESPACE}/${key}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 404) return 0;
+    if (res.ok) {
+      const data = await res.json();
+      return typeof data.value === 'number' ? data.value : 0;
+    }
+  } catch (err) {
+    console.warn(`Cloud get ${key} error:`, err);
+  }
+  return null;
+}
+
+// Cloud API: Increment counter value (returns updated integer)
+async function hitCloudValue(key: string): Promise<number | null> {
+  try {
+    const res = await fetch(`${CLOUD_API_BASE}/hit/${CLOUD_NAMESPACE}/${key}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return typeof data.value === 'number' ? data.value : null;
+    }
+  } catch (err) {
+    console.warn(`Cloud hit ${key} error:`, err);
+  }
+  return null;
+}
+
+// Load cached analytics from storage
 export function getAnalyticsData(): AnalyticsData {
-  if (typeof window === 'undefined') return DEFAULT_ANALYTICS;
+  if (typeof window === 'undefined') return REAL_DEFAULT_ANALYTICS;
 
   try {
     const raw = localStorage.getItem(ANALYTICS_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(DEFAULT_ANALYTICS));
-      return DEFAULT_ANALYTICS;
+      localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(REAL_DEFAULT_ANALYTICS));
+      return REAL_DEFAULT_ANALYTICS;
     }
 
     const data: AnalyticsData = JSON.parse(raw);
     const today = getTodayDateString();
 
-    // Reset daily counters if day has changed
+    // Reset daily counters locally if date changed
     if (data.lastDateString !== today) {
       data.todayVisitors = 0;
       data.todayDownloads = 0;
@@ -146,57 +160,101 @@ export function getAnalyticsData(): AnalyticsData {
 
     return data;
   } catch {
-    return DEFAULT_ANALYTICS;
+    return REAL_DEFAULT_ANALYTICS;
   }
 }
 
-// Save analytics data
+// Save analytics data to local cache & broadcast
 export function saveAnalyticsData(data: AnalyticsData): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(data));
     if (statsChannel) {
-      statsChannel.postMessage({ type: 'ANALYTICS_UPDATED', data });
+      statsChannel.postMessage({ type: 'REAL_ANALYTICS_UPDATED', data });
     }
   } catch (err) {
     console.error('Failed to save analytics data:', err);
   }
 }
 
-// Record a website visit
-export function recordVisitorHit(): void {
+// Synchronize all stats from the global cloud server (Real data across all users worldwide)
+export async function syncFromGlobalCloud(): Promise<AnalyticsData> {
+  const current = getAnalyticsData();
+  const today = getTodayDateString();
+
+  try {
+    const [totalVisits, uniqueVisits, todayVisits, totalDownloads, todayDownloads] =
+      await Promise.all([
+        fetchCloudValue('visits'),
+        fetchCloudValue('unique_visits'),
+        fetchCloudValue(`visits_${today}`),
+        fetchCloudValue('downloads'),
+        fetchCloudValue(`downloads_${today}`),
+      ]);
+
+    if (totalVisits !== null) current.totalVisitors = totalVisits;
+    if (uniqueVisits !== null) current.uniqueVisitors = uniqueVisits;
+    if (todayVisits !== null) current.todayVisitors = todayVisits;
+    if (totalDownloads !== null) current.totalDownloads = totalDownloads;
+    if (todayDownloads !== null) current.todayDownloads = todayDownloads;
+
+    current.isCloudSynced = true;
+    current.lastDateString = today;
+
+    saveAnalyticsData(current);
+    return current;
+  } catch (err) {
+    console.warn('Global cloud sync error:', err);
+    return current;
+  }
+}
+
+// Record a real website visit
+export async function recordVisitorHit(): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
+    const today = getTodayDateString();
     const isNewSession = !sessionStorage.getItem(SESSION_VISIT_KEY);
     const hasUniqueId = !!localStorage.getItem(UNIQUE_VISITOR_KEY);
 
     if (!hasUniqueId) {
-      localStorage.setItem(UNIQUE_VISITOR_KEY, `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`);
+      localStorage.setItem(
+        UNIQUE_VISITOR_KEY,
+        `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+      );
     }
 
-    const data = getAnalyticsData();
     const { device, browser } = detectDevice();
+    const data = getAnalyticsData();
 
-    // Increment overall pageview
-    data.totalVisitors += 1;
-    data.todayVisitors += 1;
-
-    // Increment unique visitor if never seen before
-    if (!hasUniqueId) {
-      data.uniqueVisitors += 1;
-    }
-
-    // Update device stats
-    if (device === 'Android') data.deviceCounts.android += 1;
-    else if (device === 'iPhone') data.deviceCounts.ios += 1;
-    else if (device === 'Windows') data.deviceCounts.windows += 1;
-    else if (device === 'Mac') data.deviceCounts.mac += 1;
-    else data.deviceCounts.other += 1;
-
-    // Log recent activity for new session
+    // Only count 1 visit per browser session to prevent fake refresh spamming
     if (isNewSession) {
       sessionStorage.setItem(SESSION_VISIT_KEY, 'true');
+
+      // 1. Send hit to Cloud for global cross-device tracking
+      const promises: Promise<number | null>[] = [
+        hitCloudValue('visits'),
+        hitCloudValue(`visits_${today}`),
+      ];
+
+      if (!hasUniqueId) {
+        promises.push(hitCloudValue('unique_visits'));
+      }
+
+      const results = await Promise.all(promises);
+      if (results[0] !== null) data.totalVisitors = results[0];
+      if (results[1] !== null) data.todayVisitors = results[1];
+      if (!hasUniqueId && results[2] !== null) data.uniqueVisitors = results[2];
+
+      // Update local device counter
+      if (device === 'Android') data.deviceCounts.android += 1;
+      else if (device === 'iPhone') data.deviceCounts.ios += 1;
+      else if (device === 'Windows') data.deviceCounts.windows += 1;
+      else if (device === 'Mac') data.deviceCounts.mac += 1;
+      else data.deviceCounts.other += 1;
+
+      // Add to recent activity log
       const newActivity: ActivityItem = {
         id: `act-${Date.now()}`,
         type: 'visit',
@@ -205,25 +263,39 @@ export function recordVisitorHit(): void {
         browser,
         details: 'زيارة لصفحة التنزيل الرئيسية',
       };
-      data.recentActivities = [newActivity, ...(data.recentActivities || [])].slice(0, 30);
-    }
 
-    saveAnalyticsData(data);
+      data.recentActivities = [newActivity, ...(data.recentActivities || [])].slice(0, 30);
+      data.isCloudSynced = true;
+      saveAnalyticsData(data);
+    } else {
+      // Sync latest cloud numbers quietly
+      syncFromGlobalCloud();
+    }
   } catch (e) {
     console.warn('Analytics visit record error:', e);
   }
 }
 
-// Record an app download
-export function recordDownloadHit(fileName: string = 'Shabakati.apk'): void {
+// Record a real app download
+export async function recordDownloadHit(fileName: string = 'Shabakati.apk'): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
-    const data = getAnalyticsData();
+    const today = getTodayDateString();
     const { device, browser } = detectDevice();
+    const data = getAnalyticsData();
 
-    data.totalDownloads += 1;
-    data.todayDownloads += 1;
+    // 1. Hit Cloud for total and today's downloads
+    const [newTotalDown, newTodayDown] = await Promise.all([
+      hitCloudValue('downloads'),
+      hitCloudValue(`downloads_${today}`),
+    ]);
+
+    if (newTotalDown !== null) data.totalDownloads = newTotalDown;
+    else data.totalDownloads += 1;
+
+    if (newTodayDown !== null) data.todayDownloads = newTodayDown;
+    else data.todayDownloads += 1;
 
     const newActivity: ActivityItem = {
       id: `act-${Date.now()}`,
@@ -235,42 +307,11 @@ export function recordDownloadHit(fileName: string = 'Shabakati.apk'): void {
     };
 
     data.recentActivities = [newActivity, ...(data.recentActivities || [])].slice(0, 30);
+    data.isCloudSynced = true;
     saveAnalyticsData(data);
   } catch (e) {
     console.warn('Analytics download record error:', e);
   }
-}
-
-// Reset analytics counters
-export function resetAnalyticsData(): AnalyticsData {
-  const empty: AnalyticsData = {
-    totalVisitors: 0,
-    uniqueVisitors: 0,
-    todayVisitors: 0,
-    totalDownloads: 0,
-    todayDownloads: 0,
-    lastDateString: getTodayDateString(),
-    deviceCounts: {
-      android: 0,
-      ios: 0,
-      windows: 0,
-      mac: 0,
-      other: 0,
-    },
-    recentActivities: [],
-  };
-  saveAnalyticsData(empty);
-  return empty;
-}
-
-// Update base counters manually (for admin customization)
-export function setCustomCounterValues(visitors: number, downloads: number): AnalyticsData {
-  const data = getAnalyticsData();
-  data.totalVisitors = Math.max(0, visitors);
-  data.uniqueVisitors = Math.max(0, Math.round(visitors * 0.85));
-  data.totalDownloads = Math.max(0, downloads);
-  saveAnalyticsData(data);
-  return data;
 }
 
 // Subscribe to real-time updates in tabs
@@ -278,7 +319,7 @@ export function subscribeToAnalytics(callback: (data: AnalyticsData) => void): (
   if (!statsChannel) return () => {};
 
   const handler = (event: MessageEvent) => {
-    if (event.data && event.data.type === 'ANALYTICS_UPDATED' && event.data.data) {
+    if (event.data && event.data.type === 'REAL_ANALYTICS_UPDATED' && event.data.data) {
       callback(event.data.data);
     }
   };
